@@ -126,13 +126,30 @@ async def import_csv(file: UploadFile = File(...), image_folder: str = Form(...)
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
     
+class ExportCSVRequest(BaseModel):
+    annotations: dict
+    validated_texts: dict
+
 @router.post("/export-csv/")
-async def export_csv(annotations: dict, filename: str = Form(...)):
-    save_path = os.path.join("saved", filename)
-    os.makedirs("saved", exist_ok=True)
+async def export_csv(request: ExportCSVRequest):
     try:
-        save_annotations_to_csv(save_path, annotations)
-        return {"message": f"CSV saved to {save_path}"}
+        # Combine annotations and validated texts
+        combined_data = {}
+        for image_name in request.annotations.keys():
+            combined_data[image_name] = {
+                "extracted_text": request.annotations[image_name],
+                "validated_text": request.validated_texts.get(image_name, "")
+            }
+        
+        # Save to CSV
+        save_annotations_to_csv(ANNOTATION_CSV_PATH, combined_data)
+        
+        # Return the file
+        return FileResponse(
+            ANNOTATION_CSV_PATH,
+            media_type='text/csv',
+            filename='annotations.csv'
+        )
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
 

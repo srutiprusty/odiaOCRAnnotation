@@ -116,10 +116,20 @@ function OdiyaOCRTool() {
               setValidatedText(
                 data.annotations[firstImage].validated_text || ""
               );
+            } else {
+              setValidatedText("");
             }
+          } else {
+            setOcrResult({});
+            setValidatedText("");
           }
         } else {
           setError("No valid images found in the CSV file");
+          setImages([]);
+          setSelectedImageNames([]);
+          setCurrentIndex(0);
+          setOcrResult({});
+          setValidatedText("");
         }
       };
 
@@ -127,6 +137,11 @@ function OdiyaOCRTool() {
     } catch (err) {
       setError(`Failed to load CSV: ${err.message}`);
       console.error("CSV Load Error:", err);
+      setImages([]);
+      setSelectedImageNames([]);
+      setCurrentIndex(0);
+      setOcrResult({});
+      setValidatedText("");
     } finally {
       setIsProcessing(false);
     }
@@ -214,8 +229,7 @@ function OdiyaOCRTool() {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           [images[currentIndex]]: {
-            extracted_text:
-              ocrResult?.[images[currentIndex]]?.extracted_text || "",
+            extracted_text: ocrResult?.[images[currentIndex]] || "",
             validated_text: validatedText,
           },
         }),
@@ -226,9 +240,44 @@ function OdiyaOCRTool() {
       }
 
       const data = await response.json();
-      console.log("Annotations saved:", data);
+      console.log("Annotation saved for current image:", data);
     } catch (err) {
       setError(`Failed to save annotations: ${err.message}`);
+    }
+  };
+
+  const saveToCSV = async () => {
+    try {
+      setError(null);
+      const response = await fetch("http://localhost:8000/export-csv/", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          annotations: ocrResult,
+          validated_texts: images.reduce((acc, img) => {
+            acc[img] = validatedText;
+            return acc;
+          }, {}),
+        }),
+      });
+
+      if (!response.ok) {
+        throw new Error(`Failed to save CSV: ${response.statusText}`);
+      }
+
+      const blob = await response.blob();
+      const url = window.URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = "annotations.csv";
+      document.body.appendChild(a);
+      a.click();
+      window.URL.revokeObjectURL(url);
+      document.body.removeChild(a);
+
+      console.log("All annotations exported to CSV");
+    } catch (err) {
+      setError(`Failed to save CSV: ${err.message}`);
     }
   };
 
@@ -250,7 +299,7 @@ function OdiyaOCRTool() {
       // Update text when changing images
       const nextImg = images[currentIndex + 1];
       if (ocrResult && ocrResult[nextImg]) {
-        setValidatedText(ocrResult[nextImg].extracted_text || "");
+        setValidatedText(ocrResult[nextImg] || "");
       } else {
         setValidatedText("");
       }
@@ -263,7 +312,7 @@ function OdiyaOCRTool() {
       // Update text when changing images
       const prevImg = images[currentIndex - 1];
       if (ocrResult && ocrResult[prevImg]) {
-        setValidatedText(ocrResult[prevImg].extracted_text || "");
+        setValidatedText(ocrResult[prevImg] || "");
       } else {
         setValidatedText("");
       }
@@ -331,9 +380,9 @@ function OdiyaOCRTool() {
 
           <button
             className="bg-gray-600 text-white px-4 py-2 rounded hover:bg-gray-700"
-            onClick={saveAnnotations}
+            onClick={saveToCSV}
           >
-            Save CSV
+            Export All to CSV
           </button>
         </div>
 
@@ -341,6 +390,7 @@ function OdiyaOCRTool() {
           <button
             className="bg-slate-300 px-4 py-1 rounded hover:bg-slate-400"
             onClick={prevImage}
+            disabled={currentIndex === 0}
           >
             Previous
           </button>
@@ -354,7 +404,7 @@ function OdiyaOCRTool() {
               <FaChevronDown className="ml-2" />
             </button>
 
-            {showDropdown && (
+            {showDropdown && images && images.length > 0 && (
               <div className="absolute z-10 mt-1 bg-white border rounded shadow-md w-full max-h-48 overflow-y-auto">
                 {images.map((img, index) => (
                   <div
@@ -363,6 +413,11 @@ function OdiyaOCRTool() {
                     onClick={() => {
                       setCurrentIndex(index);
                       setShowDropdown(false);
+                      if (ocrResult && ocrResult[img]) {
+                        setValidatedText(ocrResult[img] || "");
+                      } else {
+                        setValidatedText("");
+                      }
                     }}
                   >
                     <img
@@ -382,6 +437,7 @@ function OdiyaOCRTool() {
           <button
             className="bg-slate-300 px-4 py-1 rounded hover:bg-slate-400"
             onClick={nextImage}
+            disabled={currentIndex >= images.length - 1}
           >
             Next
           </button>
@@ -425,11 +481,14 @@ function OdiyaOCRTool() {
             className="bg-green-600 text-white py-2 rounded hover:bg-green-700"
             onClick={saveAnnotations}
           >
-            Save Current Annotation
+            Save Current Image
           </button>
-          {ocrResult && ocrResult[currentImage] && (
+          {ocrResult && currentImage && ocrResult[currentImage] && (
             <div className="mt-4 text-sm bg-gray-100 p-2 rounded">
-              <strong>Extracted Text:</strong> {ocrResult[currentImage]}
+              <strong>Extracted Text:</strong>{" "}
+              {typeof ocrResult[currentImage] === "object"
+                ? ocrResult[currentImage].extracted_text
+                : ocrResult[currentImage]}
             </div>
           )}
         </div>
