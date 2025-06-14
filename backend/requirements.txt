@@ -1,0 +1,5 @@
+fastapi
+uvicorn
+python-multipart
+pydantic
+google-api-core>=2.0.0
