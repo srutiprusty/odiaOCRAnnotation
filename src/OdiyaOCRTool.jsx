@@ -323,9 +323,18 @@ function OdiyaOCRTool() {
 
   return (
     <div className="min-h-screen bg-gray-100 p-4 font-sans">
-      <h1 className="text-3xl font-bold text-center mb-6 text-blue-800">
-        Odiya OCR Annotation Tool
-      </h1>
+      <div className="flex flex-row items-center justify-center mb-6">
+        <div className="mr-3 flex justify-center">
+          <img
+            src="./public/logo.png"
+            style={{ width: 48, height: 48 }}
+            alt="Odia Gen AI Logo"
+          />
+        </div>
+        <h1 className="text-sm font-bold text-blue-800 text-center whitespace-nowrap sm:text-xl md:text-2xl lg:text-3xl">
+          Odia OCR Annotation Tool
+        </h1>
+      </div>
 
       {error && (
         <div
